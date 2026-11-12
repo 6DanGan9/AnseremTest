@@ -2,6 +2,7 @@
 using AnseremTest.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Collections.Generic;
 
 namespace AnseremTest.Controllers
 {
@@ -42,9 +43,19 @@ namespace AnseremTest.Controllers
                 .Include(d => d.SwitchList)
                 .ToListAsync();
 
+            var resultCopy = GetResultCopy(to, copy, domains);
+
+            email.Copy = Format(resultCopy);
+            return Ok(email);
+        }
+
+        private static List<Address> GetResultCopy(List<Address> to, List<Address> copy, List<Domain> domains)
+        {
+            List<Address> resultCopy = copy.ToList();
+
             foreach (var domain in domains)
             {
-                var recipients = to.Concat(copy).ToList();
+                var recipients = to.Concat(resultCopy).ToList();
 
                 bool domainHit = recipients.Any(r =>
                     string.Equals(r.GetDomain(), domain.Name, StringComparison.OrdinalIgnoreCase));
@@ -58,7 +69,7 @@ namespace AnseremTest.Controllers
 
                 if (stopHit)
                 {
-                    copy = copy.Where(c => !domain.SwitchList.Any(s =>
+                    resultCopy = resultCopy.Where(c => !domain.SwitchList.Any(s =>
                         string.Equals(s.Name, c.Name, StringComparison.OrdinalIgnoreCase)))
                         .ToList();
                 }
@@ -66,17 +77,16 @@ namespace AnseremTest.Controllers
                 {
                     foreach (var sa in domain.SwitchList)
                     {
-                        bool alreadyExists = copy.Any(c =>
+                        bool alreadyExists = resultCopy.Any(c =>
                             string.Equals(c.Name, sa.Name, StringComparison.OrdinalIgnoreCase));
 
                         if (!alreadyExists)
-                            copy.Add(new Address(sa.Name));
+                            resultCopy.Add(new Address(sa.Name));
                     }
                 }
             }
 
-            email.Copy = Format(copy);
-            return Ok(email);
+            return resultCopy;
         }
 
         private static List<Address> ParseAddresses(string? raw) =>
